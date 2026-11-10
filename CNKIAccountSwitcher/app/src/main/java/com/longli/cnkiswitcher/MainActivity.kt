@@ -1,8 +1,11 @@
 package com.longli.cnkiswitcher
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -23,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,6 +40,8 @@ private val Ink = Color(0xFF202536)
 private val Muted = Color(0xFF858DA1)
 private val Accent = Color(0xFF536DFE)
 private val Bg = Color(0xFFF3F5FA)
+
+private const val XmlTemplate = "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n<map>\n</map>"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +63,31 @@ private fun SwitcherScreen() {
     var deleteTarget by remember { mutableStateOf<Account?>(null) }
     var switchTarget by remember { mutableStateOf<Account?>(null) }
     var renameText by remember { mutableStateOf("") }
+    var showAddChoice by remember { mutableStateOf(false) }
+    var showImportNameDialog by remember { mutableStateOf(false) }
+    var importName by remember { mutableStateOf("") }
+    var pendingImportXml by remember { mutableStateOf<String?>(null) }
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var showEditNameDialog by remember { mutableStateOf(false) }
+    var editName by remember { mutableStateOf("") }
+    var showXmlEditor by remember { mutableStateOf(false) }
+    var editXml by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val docPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val text = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader().use { it?.readText() } ?: ""
+                }
+                if (text.isBlank()) { message = "配置文件为空"; return@launch }
+                pendingImportXml = text
+                importName = ""
+                nameError = null
+                showImportNameDialog = true
+            } catch (e: Exception) { message = e.message ?: "读取文件失败" }
+        }
+    }
 
     fun refresh() {
         scope.launch {
@@ -92,6 +123,14 @@ private fun SwitcherScreen() {
 
             Scaffold(
                 containerColor = Color.Transparent,
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = { showAddChoice = true },
+                        containerColor = Accent,
+                        contentColor = Color.White
+                    ) { Icon(Icons.Default.Add, "新增配置") }
+                },
+                floatingActionButtonPosition = FabPosition.Center,
                 topBar = {
                     TopAppBar(
                         title = {
@@ -127,7 +166,7 @@ private fun SwitcherScreen() {
                         EmptyCard(rootOk)
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(bottom = 36.dp)) {
+                            contentPadding = PaddingValues(bottom = 96.dp)) {
                             items(accounts, key = { it.folder }) { a ->
                                 AccountCard(a, { switchTarget = a }, {
                                     renameTarget = a; renameText = a.displayName
@@ -139,7 +178,7 @@ private fun SwitcherScreen() {
             }
 
             if (busy) Surface(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = 22.dp),
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 88.dp),
                 color = Color(0xEFFFFFFF), shape = CircleShape, shadowElevation = 8.dp
             ) {
                 Row(Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
@@ -148,7 +187,7 @@ private fun SwitcherScreen() {
                     Spacer(Modifier.width(9.dp))
                     Text(message, fontSize = 12.sp, color = Ink)
                 }
-            } else Text(message, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+            } else Text(message, Modifier.align(Alignment.BottomCenter).padding(bottom = 84.dp),
                 color = Muted, fontSize = 11.sp)
         }
 
@@ -216,6 +255,131 @@ private fun SwitcherScreen() {
                 dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("取消") } }
             )
         }
+
+        // ---- 新增配置：导入 / 编辑 ----
+        if (showAddChoice) {
+            AlertDialog(
+                onDismissRequest = { showAddChoice = false },
+                title = { Text("新增配置") },
+                text = { Text("导入已有的 XML 配置文件，或手动输入账号名后编辑 XML 内容。") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showAddChoice = false
+                        docPicker.launch(arrayOf("*/*"))
+                    }) { Text("导入") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showAddChoice = false
+                        editName = ""
+                        nameError = null
+                        showEditNameDialog = true
+                    }) { Text("编辑") }
+                }
+            )
+        }
+
+        if (showImportNameDialog) {
+            AlertDialog(
+                onDismissRequest = { showImportNameDialog = false },
+                title = { Text("导入配置") },
+                text = {
+                    Column {
+                        Text("已选择配置文件，输入账号名完成新增。")
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(importName, { importName = it; nameError = null },
+                            singleLine = true, label = { Text("账号名") })
+                        if (nameError != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(nameError!!, color = Color(0xFFD94B4B), fontSize = 12.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (!importName.matches(Regex("[A-Za-z0-9._-]{1,100}"))) {
+                            nameError = "账号名只能用字母、数字、._-（1-100 字符）"
+                            return@TextButton
+                        }
+                        val xml = pendingImportXml ?: return@TextButton
+                        val folder = importName
+                        showImportNameDialog = false
+                        scope.launch {
+                            busy = true
+                            try {
+                                withContext(Dispatchers.IO) { root.importAccount(folder, xml) }
+                                message = "新增成功"
+                                refresh()
+                            } catch (e: Exception) { message = e.message ?: "新增失败" }
+                            finally { busy = false }
+                        }
+                    }) { Text("确认新增") }
+                },
+                dismissButton = { TextButton(onClick = { showImportNameDialog = false }) { Text("取消") } }
+            )
+        }
+
+        if (showEditNameDialog) {
+            AlertDialog(
+                onDismissRequest = { showEditNameDialog = false },
+                title = { Text("手动编辑") },
+                text = {
+                    Column {
+                        Text("输入账号名，确认后编辑 XML 内容。")
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(editName, { editName = it; nameError = null },
+                            singleLine = true, label = { Text("账号名") })
+                        if (nameError != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(nameError!!, color = Color(0xFFD94B4B), fontSize = 12.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (!editName.matches(Regex("[A-Za-z0-9._-]{1,100}"))) {
+                            nameError = "账号名只能用字母、数字、._-（1-100 字符）"
+                            return@TextButton
+                        }
+                        showEditNameDialog = false
+                        editXml = XmlTemplate
+                        showXmlEditor = true
+                    }) { Text("确认") }
+                },
+                dismissButton = { TextButton(onClick = { showEditNameDialog = false }) { Text("取消") } }
+            )
+        }
+
+        if (showXmlEditor) {
+            AlertDialog(
+                onDismissRequest = { showXmlEditor = false },
+                title = { Text("编辑 XML") },
+                text = {
+                    OutlinedTextField(
+                        editXml, { editXml = it },
+                        modifier = Modifier.fillMaxWidth().height(320.dp),
+                        label = { Text("XML 内容") }
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val folder = editName
+                        val xml = editXml
+                        showXmlEditor = false
+                        scope.launch {
+                            busy = true
+                            try {
+                                withContext(Dispatchers.IO) { root.importAccount(folder, xml) }
+                                message = "新增成功"
+                                refresh()
+                            } catch (e: Exception) { message = e.message ?: "新增失败" }
+                            finally { busy = false }
+                        }
+                    }) { Text("保存") }
+                },
+                dismissButton = { TextButton(onClick = { showXmlEditor = false }) { Text("取消") } }
+            )
+        }
     }
 }
 
@@ -251,35 +415,75 @@ private fun CurrentCard(account: Account?, rootOk: Boolean) {
 @Composable
 private fun AccountCard(a: Account, onSwitch: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
     val scale by animateFloatAsState(1f, spring(), label = "touchFeedback")
-    Surface(Modifier.fillMaxWidth().scale(scale), RoundedCornerShape(22.dp),
-        color = Color(0xDFFFFFFF), shadowElevation = if (a.isCurrent) 5.dp else 2.dp) {
-        Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 13.dp, bottom = 13.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(42.dp).clip(RoundedCornerShape(15.dp))
-                .background(if (a.isCurrent) Color(0xFFE8EDFF) else Color(0xFFF0F2F8)),
-                contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Person, null, tint = if (a.isCurrent) Accent else Muted)
+    // 右滑重命名，左滑删除；滑动只触发操作，卡片随后弹回原位。
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> { onRename(); false }
+                SwipeToDismissBoxValue.EndToStart -> { onDelete(); false }
+                else -> false
             }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(a.displayName, fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 15.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(a.folder, color = Muted, fontSize = 11.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (a.isCurrent) Text("当前使用", color = Color(0xFF239766), fontSize = 10.sp)
+        },
+        positionalThreshold = { it * 0.3f }
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val color = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> Accent
+                SwipeToDismissBoxValue.EndToStart -> Color(0xFFD94B4B)
+                else -> Color.Transparent
             }
-            TextButton(onClick = onSwitch) { Text(if (a.isCurrent) "重启" else "切换") }
-            var expanded by remember { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { expanded = true }) { Icon(Icons.Default.MoreVert, "更多", tint = Muted) }
-                DropdownMenu(expanded, { expanded = false }) {
-                    DropdownMenuItem(text = { Text("重命名") },
-                        leadingIcon = { Icon(Icons.Default.Edit, null) },
-                        onClick = { expanded = false; onRename() })
-                    DropdownMenuItem(text = { Text("删除快照", color = Color(0xFFD94B4B)) },
-                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color(0xFFD94B4B)) },
-                        onClick = { expanded = false; onDelete() })
+            val alignment = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                else -> Alignment.Center
+            }
+            val icon = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> Icons.Default.Edit
+                SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
+                else -> null
+            }
+            val label = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> "重命名"
+                SwipeToDismissBoxValue.EndToStart -> "删除"
+                else -> ""
+            }
+            Box(
+                Modifier.fillMaxSize().background(color, RoundedCornerShape(22.dp)).padding(horizontal = 20.dp),
+                contentAlignment = alignment
+            ) {
+                if (icon != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(icon, null, tint = Color.White)
+                        Spacer(Modifier.width(6.dp))
+                        Text(label, color = Color.White, fontWeight = FontWeight.SemiBold)
+                    }
                 }
+            }
+        },
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true
+    ) {
+        Surface(Modifier.fillMaxWidth().scale(scale), RoundedCornerShape(22.dp),
+            color = Color(0xDFFFFFFF), shadowElevation = if (a.isCurrent) 5.dp else 2.dp) {
+            Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 13.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(15.dp))
+                    .background(if (a.isCurrent) Color(0xFFE8EDFF) else Color(0xFFF0F2F8)),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Person, null, tint = if (a.isCurrent) Accent else Muted)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(a.displayName, fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 15.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(a.folder, color = Muted, fontSize = 11.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (a.isCurrent) Text("当前使用", color = Color(0xFF239766), fontSize = 10.sp)
+                }
+                TextButton(onClick = onSwitch) { Text(if (a.isCurrent) "重启" else "切换") }
             }
         }
     }
