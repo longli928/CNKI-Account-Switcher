@@ -135,7 +135,7 @@ private fun SwitcherScreen() {
                     TopAppBar(
                         title = {
                             Column {
-                                Text("知网账号切换器", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                Text("CNKI Switch", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                                 Text("CNKI Account Switcher", color = Muted, fontSize = 11.sp)
                             }
                         },
