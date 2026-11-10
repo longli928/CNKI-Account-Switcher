@@ -11,7 +11,7 @@ data class Account(
 
 class RootManager {
     companion object {
-        const val ROOT_DIR = "/data/adb/cnki-accounts"
+        const val ROOT_DIR = "/storage/emulated/0/Download/CNKI_account"
         const val APP_ID = "com.cnki.android.cnkimobile"
         const val PREF_PATH = "/data/data/com.cnki.android.cnkimobile/shared_prefs/cnki_mobile.xml"
     }
@@ -29,7 +29,6 @@ class RootManager {
     fun loadAccounts(): List<Account> {
         val script = """
             mkdir -p '$ROOT_DIR'
-            chmod 777 '$ROOT_DIR'
             LIVE_HASH=
             [ -s '$PREF_PATH' ] && LIVE_HASH=${'$'}(sha256sum '$PREF_PATH' | cut -d' ' -f1)
             for d in '$ROOT_DIR'/*; do
