@@ -30,17 +30,17 @@ class RootManager {
         val script = """
             mkdir -p '$ROOT_DIR'
             LIVE_HASH=
-            [ -s '$PREF_PATH' ] && LIVE_HASH=\$(sha256sum '$PREF_PATH' | cut -d' ' -f1)
+            [ -s '$PREF_PATH' ] && LIVE_HASH=${'$'}(sha256sum '$PREF_PATH' | cut -d' ' -f1)
             for d in '$ROOT_DIR'/*; do
-              [ -d "\$d" ] || continue
-              f="\$d/cnki_mobile.xml"
-              [ -s "\$f" ] || continue
-              h=\$(sha256sum "\$f" | cut -d' ' -f1)
-              n=\$(basename "\$d")
-              v=\$(cat "\$d/display_name" 2>/dev/null)
-              [ -n "\$v" ] || v="\$n"
-              c=0; [ "\$h" = "\$LIVE_HASH" ] && c=1
-              printf '%s\t%s\t%s\n' "\$n" "\$v" "\$c"
+              [ -d "${'$'}d" ] || continue
+              f="${'$'}d/cnki_mobile.xml"
+              [ -s "${'$'}f" ] || continue
+              h=${'$'}(sha256sum "${'$'}f" | cut -d' ' -f1)
+              n=${'$'}(basename "${'$'}d")
+              v=${'$'}(cat "${'$'}d/display_name" 2>/dev/null)
+              [ -n "${'$'}v" ] || v="${'$'}n"
+              c=0; [ "${'$'}h" = "${'$'}LIVE_HASH" ] && c=1
+              printf '%s\t%s\t%s\n' "${'$'}n" "${'$'}v" "${'$'}c"
             done
         """.trimIndent()
         val raw = runRoot(script)
