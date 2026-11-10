@@ -29,6 +29,7 @@ class RootManager {
     fun loadAccounts(): List<Account> {
         val script = """
             mkdir -p '$ROOT_DIR'
+            chmod 777 '$ROOT_DIR'
             LIVE_HASH=
             [ -s '$PREF_PATH' ] && LIVE_HASH=${'$'}(sha256sum '$PREF_PATH' | cut -d' ' -f1)
             for d in '$ROOT_DIR'/*; do
