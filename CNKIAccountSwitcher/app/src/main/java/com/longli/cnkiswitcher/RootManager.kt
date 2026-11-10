@@ -1,5 +1,6 @@
 package com.longli.cnkiswitcher
 
+import android.util.Base64
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -76,5 +77,18 @@ class RootManager {
     fun deleteAccount(folder: String) {
         require(folder.matches(Regex("[A-Za-z0-9._-]{1,100}")))
         runRoot("rm -rf '$ROOT_DIR/$folder'")
+    }
+
+    fun importAccount(folder: String, xmlContent: String) {
+        require(folder.matches(Regex("[A-Za-z0-9._-]{1,100}"))) { "账号名不合法" }
+        require(xmlContent.isNotBlank()) { "配置文件内容为空" }
+        val base64 = Base64.encodeToString(xmlContent.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        runRoot("""
+            set -e
+            mkdir -p '$ROOT_DIR/$folder'
+            printf '%s' '$base64' | base64 -d > '$ROOT_DIR/$folder/cnki_mobile.xml'
+            chmod 644 '$ROOT_DIR/$folder/cnki_mobile.xml'
+            test -s '$ROOT_DIR/$folder/cnki_mobile.xml'
+        """.trimIndent())
     }
 }
