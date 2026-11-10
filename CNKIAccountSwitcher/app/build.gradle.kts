@@ -19,6 +19,10 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+    // 不上架 Google Play，关掉“目标 API 必须 >= 33”的发布检查，保留 targetSdk 29
+    lint {
+        disable += "ExpiredTargetSdkVersion"
+    }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
