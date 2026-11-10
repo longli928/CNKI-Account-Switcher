@@ -75,6 +75,9 @@ private fun SwitcherScreen() {
         }
     }
 
+    // Cold start: request root immediately, then refresh the list once.
+    LaunchedEffect(Unit) { refresh() }
+
     MaterialTheme(colorScheme = lightColorScheme(
         primary = Accent, background = Bg, surface = Color.White,
         onBackground = Ink, onSurface = Ink
