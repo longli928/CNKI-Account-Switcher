@@ -297,8 +297,8 @@ private fun SwitcherScreen() {
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        if (!importName.matches(Regex("[A-Za-z0-9._-]{1,100}"))) {
-                            nameError = "账号名只能用字母、数字、._-（1-100 字符）"
+                        if (!importName.matches(Regex("[A-Za-z0-9._*-]{1,100}"))) {
+                            nameError = "账号名只能用字母、数字、._-*（1-100 字符）"
                             return@TextButton
                         }
                         val xml = pendingImportXml ?: return@TextButton
@@ -337,8 +337,8 @@ private fun SwitcherScreen() {
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        if (!editName.matches(Regex("[A-Za-z0-9._-]{1,100}"))) {
-                            nameError = "账号名只能用字母、数字、._-（1-100 字符）"
+                        if (!editName.matches(Regex("[A-Za-z0-9._*-]{1,100}"))) {
+                            nameError = "账号名只能用字母、数字、._-*（1-100 字符）"
                             return@TextButton
                         }
                         showEditNameDialog = false

@@ -53,7 +53,7 @@ class RootManager {
     }
 
     fun switchAccount(folder: String) {
-        require(folder.matches(Regex("[A-Za-z0-9._-]{1,100}"))) { "账号目录名不合法" }
+        require(folder.matches(Regex("[A-Za-z0-9._*-]{1,100}"))) { "账号目录名不合法" }
         val src = "$ROOT_DIR/$folder/cnki_mobile.xml"
         runRoot("""
             set -e
@@ -68,19 +68,19 @@ class RootManager {
     }
 
     fun renameAccount(folder: String, name: String) {
-        require(folder.matches(Regex("[A-Za-z0-9._-]{1,100}")))
+        require(folder.matches(Regex("[A-Za-z0-9._*-]{1,100}")))
         val safe = name.trim().take(60).replace("'", "'\\''")
         require(safe.isNotBlank()) { "备注不能为空" }
         runRoot("printf '%s' '$safe' > '$ROOT_DIR/$folder/display_name'")
     }
 
     fun deleteAccount(folder: String) {
-        require(folder.matches(Regex("[A-Za-z0-9._-]{1,100}")))
+        require(folder.matches(Regex("[A-Za-z0-9._*-]{1,100}")))
         runRoot("rm -rf '$ROOT_DIR/$folder'")
     }
 
     fun importAccount(folder: String, xmlContent: String) {
-        require(folder.matches(Regex("[A-Za-z0-9._-]{1,100}"))) { "账号名不合法" }
+        require(folder.matches(Regex("[A-Za-z0-9._*-]{1,100}"))) { "账号名不合法" }
         require(xmlContent.isNotBlank()) { "配置文件内容为空" }
         val base64 = Base64.encodeToString(xmlContent.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
         runRoot("""
